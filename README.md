@@ -1,5 +1,5 @@
 # bbox_hist
-Calculates bounding box of a video. Needs ffmpeg and ffprobe.
+Calculates bounding box of a video. Needs `ffmpeg` and `ffprobe`.
 
 ## Usage
 <pre>
@@ -11,34 +11,34 @@ draws a box instead of cropping, which may help when experimenting
 with parameters.
 
 ## Options
-<dl><dt>--max-luminance <i>unsigned (32)</i></dt>
-<dd>The maximum luminance to consider a pixel black. This is the same as ffmpeg's
-bbox video filter's min_val parameter.</dd>
+- --max-luminance *uint*  
+  The maximum luminance to consider a pixel black. This is the same as ffmpeg's
+  bbox video filter's min_val parameter. Default: 32
 
-<dt>--min-incidence <i>float (0.15)</i></dt>
-<dd>The minimum incidence of a border position in the internal histogram to consider it.
-Expressed as fraction of the maximum incidence.</dd>
+- --min-incidence *float*  
+  The minimum incidence of a border position in the internal histogram to consider it.
+  Expressed as fraction of the maximum incidence. Default: 0.15
 
-<dt>--width-factor</dt>
-<dd>An optional factor the bounding box's width must be divisible by.</dd>
+- --width-factor *uint*  
+  An optional factor the bounding box's width must be divisible by.
 
-<dt>--height-factor</dt>
-<dd>An optional factor the bounding box's height must be divisible by.</dd>
+- --height-factor *uint*  
+  An optional factor the bounding box's height must be divisible by.
 
-<dt>--pre-crop <i>left:right:top:bottom</i></dt>
-<dd>Minimum cropping that is applied before measuring the bounding box. Parameters
-state the number of pixel rows or columns, that will be cropped from the left, right,
-top or bottom. Must be positive integers or zero. May help with videos which contain
-static disturbances like white pixels etc.</dd>
+- --pre-crop *left*:*right*:*top*:*bottom*  
+  Minimum cropping that is applied before measuring the bounding box. Parameters
+  state the number of pixel rows or columns, that will be cropped from the left, right,
+  top or bottom. Must be positive integers or zero. May help with videos which contain
+  static disturbances like white pixels etc.
 
-<dt>--video</dt>
-<dd>The input file. May also be specified as first positional argument.</dd>
+- --video *filename*  
+  The input file. May also be specified as first positional argument.
 
-<dt>--save-histogram</dt>
-<dd>Save an ASCII art of the internal histogram of possible border positions.</dd>
+- --save-histogram  
+  Save an ASCII art of the internal histogram of possible border positions.
 
-<dt>--crop</dt>
-<dd>Output bounding box as crop parameter suitable for ffmpeg's video filter.</dd>
+- --crop  
+  Output bounding box as crop parameter suitable for ffmpeg's video filter.
 
-<dt>--drawbox</dt>
-<dd>Output bounding box as drawbox parameter suitable for ffmpeg's video filter.</dd></dl>
+- --drawbox  
+  Output bounding box as drawbox parameter suitable for ffmpeg's video filter.
