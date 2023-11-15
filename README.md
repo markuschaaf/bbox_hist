@@ -25,6 +25,12 @@ Expressed as fraction of the maximum incidence.</dd>
 <dt>--height-factor</dt>
 <dd>An optional factor the bounding box's height must be divisible by.</dd>
 
+<dt>--pre-crop <i>left:right:top:bottom</i></dt>
+<dd>Minimum cropping that is applied before measuring the bounding box. Parameters
+state the number of pixel rows or columns, that will be cropped from the left, right,
+top or bottom. Must be positive integers or zero. May help with videos which contain
+static disturbances like white pixels etc.</dd>
+
 <dt>--video</dt>
 <dd>The input file. May also be specified as first positional argument.</dd>
 

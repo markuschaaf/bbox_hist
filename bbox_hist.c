@@ -13,12 +13,13 @@
 #define MAX_WIDTH  1920
 #define MAX_HEIGHT 1080
 
-static char const *options = "-l:i:w:h:v:scd";
+static char const *options = "-l:i:w:h:p:v:scd";
 static struct option const long_options[] = {
 	{ "max-luminance" , required_argument, NULL, 'l' },
 	{ "min-incidence" , required_argument, NULL, 'i' },
 	{ "width-factor"  , required_argument, NULL, 'w' },
 	{ "height-factor" , required_argument, NULL, 'h' },
+	{ "pre-crop"      , required_argument, NULL, 'p' },
 	{ "video"         , required_argument, NULL, 'v' },
 	{ "save-histogram", no_argument      , NULL, 's' },
 	{ "crop"          , no_argument      , NULL, 'c' },
@@ -28,6 +29,7 @@ static struct option const long_options[] = {
 
 static unsigned    max_luminance = 32;
 static double      min_incidence = 0.15; // of max incidence amplitude
+static unsigned    pre_crop_l, pre_crop_r, pre_crop_t, pre_crop_b;
 static char const *video;
 static char       *video_shell_quoted;
 static unsigned    save_histogram, crop, drawbox;
@@ -77,19 +79,30 @@ void process_cmd( char *cmd_txt, parse_line_fn parse_line, void *state )
 	pclose( cmd );
 }
 
-int parse_duration( FILE *input, void *state )
+struct video_info { unsigned duration, width, height; };
+
+int parse_video_info( FILE *input, void *state )
 {
-	unsigned *p_duration = state;
-	return fscanf( input, "duration=%u", p_duration );
+	struct video_info *p_info = state;
+	int r = 0, n = 0;
+	#define scan( what ) if( p_info->what ) ++n; else if( !r ) r = fscanf( input, #what "=%u", &p_info->what );
+	scan( duration )
+	scan( width    )
+	scan( height   )
+	#undef scan
+	return r == EOF ? EOF : n == 3;
 }
 
-unsigned video_duration()
+void video_info( struct video_info *vi )
 {
-	static char const cmd_tpl[] = "ffprobe -v error -hide_banner -show_entries format=duration %s";
-	unsigned duration = 0;
-	process_cmd( alloc_printf( cmd_tpl, video_shell_quoted ), &parse_duration, &duration );
-	if( duration == 0 ) errx( EX_SOFTWARE, "cannot get duration" );
-	return duration;
+	static char const cmd_tpl[] = "ffprobe -v error -hide_banner -show_entries stream=width,height:format=duration %s";
+	memset( vi, 0, sizeof( struct video_info ));
+	process_cmd( alloc_printf( cmd_tpl, video_shell_quoted ), &parse_video_info, vi );
+	#define check( what ) if( vi->what == 0 ) errx( EX_SOFTWARE, "cannot get video " #what );
+	check( duration )
+	check( width    )
+	check( height   )
+	#undef check
 }
 
 struct bbox_hist { unsigned x[ MAX_WIDTH+1 ], y[ MAX_HEIGHT+1 ]; }; // max stored @ last index
@@ -101,6 +114,8 @@ int parse_bbox( FILE *input, void *state )
 	int c =	fscanf( input, "[Parsed_bbox_%*u @ %*i] n:%*u pts:%*u pts_time:%*u.%*u x1:%u x2:%u y1:%u y2:%u", &x1, &x2, &y1, &y2 );
 	if( c == EOF ) return EOF;
 	if( c != 4   ) return 0;
+	x1 += pre_crop_l; x2 += pre_crop_l;
+	y1 += pre_crop_t; y2 += pre_crop_t;
 	if( x1 >= MAX_WIDTH || x2 >= MAX_WIDTH || y1 >= MAX_HEIGHT || y2 >= MAX_HEIGHT )
 		errx( EX_SOFTWARE, "Video frames too big. Increase bounds and recompile." );
 	if(
@@ -181,11 +196,14 @@ struct bounds round_bounds( struct bounds b, unsigned factor )
 
 void process_video( void )
 {
-	static char const cmd_tpl[] = "ffmpeg -v info -hide_banner -ss %u -to %u -i %s -map 0:v:0 -vf bbox=min_val=%u -f null /dev/null 2>&1";
-	unsigned duration = video_duration(), start = duration / 12, stop = duration - duration / 6;
+	static char const cmd_tpl[] = "ffmpeg -v info -hide_banner -ss %u -to %u -i %s -map 0:v:0 -vf crop=%u:%u:%u:%u,bbox=min_val=%u -f null /dev/null 2>&1";
+	struct video_info vi; video_info( &vi );
+	unsigned start = vi.duration / 12, stop = vi.duration - vi.duration / 6;
 	struct bbox_hist hist;
 	memset( &hist, 0, sizeof hist );
-	process_cmd( alloc_printf( cmd_tpl, start, stop, video_shell_quoted, max_luminance ), parse_bbox, &hist );
+	process_cmd( alloc_printf( cmd_tpl, start, stop, video_shell_quoted,
+		vi.width - pre_crop_l - pre_crop_r, vi.height - pre_crop_t - pre_crop_b, pre_crop_l, pre_crop_t,
+		max_luminance ), parse_bbox, &hist );
 	hist_max( hist.x, MAX_WIDTH );
 	hist_max( hist.y, MAX_HEIGHT );
 	print_hist( alloc_printf( "%s.x_hist", video ), hist.x, MAX_WIDTH );
@@ -249,6 +267,10 @@ void process_cmdline( int argc, char **argv )
 			case 'h':
 				if( sscanf( optarg, "%u", &height_factor ) != 1 )
 					errx( EX_USAGE, "expected: --height-factor <unsigned int>" );
+				continue;
+			case 'p':
+				if( sscanf( optarg, "%u:%u:%u:%u", &pre_crop_l, &pre_crop_r, &pre_crop_t, &pre_crop_b ) != 4 )
+					errx( EX_USAGE, "expected: --pre-crop l:r:t:b" );
 				continue;
 			case 1:
 			case 'v':
